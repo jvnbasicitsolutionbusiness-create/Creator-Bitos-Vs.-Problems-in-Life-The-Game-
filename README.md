@@ -24,6 +24,7 @@ npm run dev          # http://localhost:3000  (zero-dependency static server)
 That's it — there is nothing to install. Any static server works just as well:
 
 ```bash
+node tools/serve.js public   # public/ as the site root, as a static host serves it
 python3 -m http.server 3000 --directory public
 npx serve public
 ```

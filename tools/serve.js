@@ -2,7 +2,9 @@
 /**
  * serve.js — zero-dependency static server for local play.
  *
- *   node tools/serve.js            # http://localhost:3000
+ *   node tools/serve.js            # whole repo; game at /public/index.html
+ *   node tools/serve.js public     # public/ as the site root, as a static
+ *                                  # host (Pages/Vercel/Netlify) serves it
  *   PORT=8080 node tools/serve.js
  *
  * Uses only the Node standard library: there is no Express, no build step and
@@ -17,6 +19,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Optional docroot: `node tools/serve.js public` serves that folder as the
+// site root, which is how a static host publishes the game.
+const arg = process.argv[2];
+const DOCROOT = path.resolve(ROOT, arg || '.');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -49,8 +55,8 @@ function contentType(file) {
 /** Keep requests inside the served folder. */
 function resolveSafe(urlPath) {
   const decoded = decodeURIComponent(urlPath.split('?')[0].split('#')[0]);
-  const candidate = path.resolve(ROOT, `.${path.posix.normalize(decoded)}`);
-  if (candidate === ROOT || candidate.startsWith(ROOT + path.sep)) return candidate;
+  const candidate = path.resolve(DOCROOT, `.${path.posix.normalize(decoded)}`);
+  if (candidate === DOCROOT || candidate.startsWith(DOCROOT + path.sep)) return candidate;
   return null;
 }
 
@@ -81,7 +87,7 @@ const server = http.createServer(async (req, res) => {
   const target = resolveSafe(requested);
   let file = target ? await findFile(target) : null;
   // Single-page fallback: unknown paths still serve the game shell.
-  if (!file && target && !path.extname(target)) file = await findFile(path.join(ROOT, 'public', 'index.html'));
+  if (!file && target && !path.extname(target)) file = await findFile(path.join(DOCROOT, 'index.html'));
 
   if (!file) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -113,7 +119,7 @@ server.listen(PORT, HOST, () => {
   console.log('  CREATOR BITOS VS PROBLEMS IN LIFE (THE GAME)');
   console.log('===============================================================');
   console.log(`  Playing at : http://localhost:${PORT}`);
-  console.log(`  Serving    : ${path.join(ROOT, 'public')}`);
+  console.log(`  Docroot    : ${DOCROOT}`);
   console.log('  Backend    : none — accounts are stored in your browser');
   console.log('  (run `npm run server` if you want the accounts API)');
   console.log('===============================================================');
