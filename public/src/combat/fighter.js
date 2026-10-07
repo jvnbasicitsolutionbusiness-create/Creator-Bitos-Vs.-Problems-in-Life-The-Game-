@@ -642,6 +642,7 @@ export class Fighter {
   /** Final render pose including squash/lift. */
   renderState() {
     return {
+      id: this.def.id,
       solved: this.solved,
       x: this.x,
       y: this.footY,

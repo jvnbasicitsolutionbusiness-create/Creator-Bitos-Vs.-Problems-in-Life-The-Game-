@@ -245,7 +245,8 @@ export class CampaignScene {
       silhouette: !card.unlocked,
       silhouetteColor: '#241b21',
       eye: { x: 0.6, y: 0 },
-      eyeStyle: def.eyeStyle
+      eyeStyle: def.eyeStyle,
+      charId: card.unlocked ? def.id : null
     });
 
     // Name + arena
@@ -351,7 +352,8 @@ export class CampaignScene {
         lineWidth: 8,
         glow: 1.1,
         eye: { x: 0.9, y: 0 },
-        eyeStyle: side.def.eyeStyle
+        eyeStyle: side.def.eyeStyle,
+        charId: side.def.id
       });
       drawText(ctx, side.def.name, side.x, 470, {
         size: 22, weight: '800', color: side.def.color, align: 'center', spacing: 2,

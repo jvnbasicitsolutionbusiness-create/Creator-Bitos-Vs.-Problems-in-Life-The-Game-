@@ -552,7 +552,8 @@ export class BattleScene {
         flash: state.flash,
         aura: state.aura,
         squashY: state.squashY,
-        tilt: state.tilt
+        tilt: state.tilt,
+        charId: state.id
       });
 
       if (this.showHitboxes) this.#drawDebugBoxes(ctx, f);

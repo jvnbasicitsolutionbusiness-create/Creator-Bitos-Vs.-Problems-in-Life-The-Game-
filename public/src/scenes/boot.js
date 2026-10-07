@@ -357,7 +357,8 @@ export class BootScene {
       x, y: GROUND, facing, height, color: def.color, accent: def.accent,
       lineWidth: (height / 130) * 6, glow: reveal * 1.1,
       alpha: reveal * 0.92,
-      eye: { x: 0.8, y: 0 }, eyeStyle: def.eyeStyle
+      eye: { x: 0.8, y: 0 }, eyeStyle: def.eyeStyle,
+      charId: id
     });
   }
 
@@ -386,7 +387,8 @@ export class BootScene {
     drawShadow(ctx, 640, GROUND + 6, 80, 0.75);
     drawStickman(ctx, solved, {
       x: 640, y: GROUND, facing: 1, height: 240, color: def.color, accent: def.accent,
-      lineWidth: 11, glow: 1.8, eye: { x: 0.6, y: 0 }, eyeStyle: def.eyeStyle
+      lineWidth: 11, glow: 1.8, eye: { x: 0.6, y: 0 }, eyeStyle: def.eyeStyle,
+      charId: 'creator-bitos'
     });
   }
 }

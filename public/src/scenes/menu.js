@@ -333,7 +333,8 @@ export class MenuScene {
       lineWidth: 12,
       glow: 1.3,
       eye: { x: clamp(this.gaze.x * -1, -1, 1), y: clamp(-this.gaze.y, -1, 1) },
-      eyeStyle: this.cautious > 0.5 ? 'wide' : 'angry'
+      eyeStyle: this.cautious > 0.5 ? 'wide' : 'angry',
+      charId: 'creator-bitos'
     });
   }
 
@@ -427,7 +428,8 @@ export class MenuScene {
     const pose = addPose(clonePose(def.stance || NEUTRAL_POSE), CLIPS.idle({ t: this.time, rng: 2 }), 1);
     drawStickman(ctx, solvePosePlanted(pose, 150), {
       x: 640, y: 640, facing: 1, height: 150, color: def.color, accent: def.accent,
-      lineWidth: 7, glow: 0.8, alpha: 0.35, eye: { x: 0.1, y: -0.2 }, eyeStyle: 'wide'
+      lineWidth: 7, glow: 0.8, alpha: 0.35, eye: { x: 0.1, y: -0.2 }, eyeStyle: 'wide',
+      charId: 'creator-bitos'
     });
     void slantRect;
     void lerp;

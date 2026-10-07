@@ -463,7 +463,8 @@ export class IntroScene {
           silhouetteColor: '#050305',
           eye: { x: 0.8, y: 0 },
           eyeStyle: e.def.eyeStyle,
-          flash: e.knock * 0.5
+          flash: e.knock * 0.5,
+          charId: e.silhouette > 0.5 ? null : e.id
         });
       }
 
@@ -671,7 +672,8 @@ export class IntroScene {
       alpha: this.bitosAlpha,
       eye: { x: beatId === 'awaken' ? 0.1 : 1, y: 0 },
       eyeStyle: bitos.eyeStyle,
-      aura: beatId === 'survive' || beatId === 'title' ? { color: '#ff6b6b', strength: 0.85 } : null
+      aura: beatId === 'survive' || beatId === 'title' ? { color: '#ff6b6b', strength: 0.85 } : null,
+      charId: 'creator-bitos'
     });
   }
 
