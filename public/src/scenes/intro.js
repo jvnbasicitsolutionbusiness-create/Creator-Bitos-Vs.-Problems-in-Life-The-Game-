@@ -30,6 +30,9 @@ import { clamp, lerp, rgba, rand, chance, easeOutCubic, easeInCubic, pulse, TAU 
 import { settings } from '../config/settings.js';
 import { Button } from '../ui/widgets.js';
 
+/** Seconds before SKIP becomes available, so the opening click cannot end it. */
+const SKIP_GRACE = 1.6;
+
 const GROUND = 566;
 
 const BEATS = [
@@ -115,8 +118,12 @@ export class IntroScene {
     this.bitoxX = 640;
     this.bitosAlpha = 0;
     this.next = params.next || 'menu';
+    this.nextParams = params.nextParams || {};
     this.replay = Boolean(params.replay);
-    this.canSkip = gameState.hasSeenIntro || this.replay;
+    // Skippable from the very first playthrough — being forced to sit through
+    // a cutscene is how you lose a player. The brief grace period stops the
+    // same click that started the game from also ending the cinematic.
+    this.canSkip = true;
 
     // The camera is shared with the battle scene — claim it before drawing.
     this.camera?.reset({ x: 640, y: 400, zoom: 1 });
@@ -166,7 +173,7 @@ export class IntroScene {
   }
 
   skip() {
-    if (this.finished) return;
+    if (this.finished || this.time < SKIP_GRACE) return;
     this.skipped = true;
     this.finish();
   }
@@ -175,7 +182,11 @@ export class IntroScene {
     if (this.finished) return;
     this.finished = true;
     if (!this.replay) gameState.markIntroSeen();
-    this.manager.change(this.next, { transition: TRANSITIONS.FADE, duration: 0.8 });
+    this.manager.change(this.next, {
+      transition: TRANSITIONS.FADE,
+      duration: 0.8,
+      params: this.nextParams
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -350,7 +361,8 @@ export class IntroScene {
 
     /* ------------------------------------------------------------- skip */
     if (this.canSkip) {
-      this.skipButton.update(dt, pointer);
+      // Fade the button in as the grace period expires, so it does not pop.
+      if (this.time >= SKIP_GRACE) this.skipButton.update(dt, pointer);
       const p1 = input.p1();
       if ((p1.wasPressed('confirm') || p1.wasPressed('back') || input.anyKeyPressed) && this.time > 0.6) this.skip();
     }
@@ -530,7 +542,13 @@ export class IntroScene {
 
     /* ----------------------------------------------------------- skip */
     if (this.canSkip) {
-      this.skipButton.draw(ctx, dt);
+      if (this.time >= SKIP_GRACE) {
+        const fade = Math.min(1, (this.time - SKIP_GRACE) / 0.5);
+        ctx.save();
+        ctx.globalAlpha = fade;
+        this.skipButton.draw(ctx, dt);
+        ctx.restore();
+      }
       drawText(ctx, 'PRESS ANY KEY TO SKIP', 1140, 632, {
         size: 11, weight: '700', color: '#6d6469', align: 'center', spacing: 1.6
       });
@@ -776,7 +794,7 @@ export class IntroScene {
 
   /** Called by the game loop so the skip button can be clicked. */
   handlePointer(pointer) {
-    if (!this.canSkip || this.finished) return;
+    if (this.finished || this.time < SKIP_GRACE) return;
     this.skipButton.handlePointer?.(pointer);
   }
 }

@@ -245,6 +245,34 @@ try {
   check('accessibility toggle changes effect scale', false, err.message);
 }
 
+/* ------------------------------------------------ opening cinematic flow */
+
+// The cinematic now plays BEFORE sign-up, so it runs with no player record
+// loaded — something that used to be impossible and needs its own coverage.
+try {
+  const { gameState } = await import('../public/src/core/state.js');
+  const { storage } = await import('../public/src/core/utils.js');
+
+  storage.remove('introSeen');
+  gameState.player = null;
+  check('a brand-new visitor has not seen the cinematic', gameState.hasSeenIntro === false);
+
+  gameState.markIntroSeen();
+  check('marking it seen works with nobody signed in', gameState.hasSeenIntro === true);
+  check('it is remembered on the device, not just the account', storage.get('introSeen', false) === true);
+
+  // A fresh module instance standing in for a fresh account: the device flag
+  // must win, or a player who signs up right after watching sees it twice.
+  const fresh = await import(`../public/src/core/state.js?fresh=${Date.now()}`);
+  fresh.gameState.player = { hasSeenIntro: false, settings: {} };
+  check('a player who signs up straight afterwards is not shown it again',
+    fresh.gameState.hasSeenIntro === true);
+
+  storage.remove('introSeen');
+} catch (err) {
+  check('opening cinematic flow', false, err.message);
+}
+
 console.log('\n===============================================================');
 console.log(`  ${checks - failures}/${checks} checks passed`);
 console.log('===============================================================');

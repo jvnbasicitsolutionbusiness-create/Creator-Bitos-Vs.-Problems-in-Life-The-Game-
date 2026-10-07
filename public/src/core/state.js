@@ -71,6 +71,7 @@ class GameState {
   async register(payload) {
     const res = await api.register(payload);
     this.player = res.player;
+    this.#syncIntroSeen();
     settings.replace(res.player.settings || {});
     this.#notify();
     return res;
@@ -79,6 +80,7 @@ class GameState {
   async login(payload) {
     const res = await api.login(payload);
     this.player = res.player;
+    this.#syncIntroSeen();
     settings.replace(res.player.settings || {});
     this.#notify();
     return res;
@@ -97,6 +99,7 @@ class GameState {
     try {
       const res = await api.me();
       this.player = res.player;
+      this.#syncIntroSeen();
       settings.replace(res.player.settings || {});
       this.#notify();
       return res.player;
@@ -131,8 +134,14 @@ class GameState {
     return Boolean(this.player?.campaignCompleted);
   }
 
+  /**
+   * The cinematic now plays *before* sign-up, so watching it cannot be stored
+   * on a player record that does not exist yet. It is remembered on the device
+   * as well, which also stops a player who signs up straight afterwards from
+   * being shown it a second time.
+   */
   get hasSeenIntro() {
-    return Boolean(this.player?.hasSeenIntro);
+    return Boolean(this.player?.hasSeenIntro) || storage.get('introSeen', false) === true;
   }
 
   isUnlocked(characterId) {
@@ -151,9 +160,19 @@ class GameState {
   }
 
   markIntroSeen() {
+    // Works whether or not anyone is signed in yet.
+    storage.set('introSeen', true);
     if (!this.player) return;
     this.player.hasSeenIntro = true;
     this.queue({ hasSeenIntro: true });
+  }
+
+  /** Carry a device-level "already watched" onto a freshly signed-in player. */
+  #syncIntroSeen() {
+    if (this.player && !this.player.hasSeenIntro && storage.get('introSeen', false) === true) {
+      this.player.hasSeenIntro = true;
+      this.queue({ hasSeenIntro: true });
+    }
   }
 
   /**
@@ -274,6 +293,7 @@ class GameState {
     try {
       const res = await api.save(patch);
       this.player = res.player;
+      this.#syncIntroSeen();
       this.saveStatus = SAVE_STATUS.SAVED;
       this.lastSavedAt = Date.now();
       this.lastError = null;

@@ -76,7 +76,16 @@ const scenes = {
 };
 for (const [name, scene] of Object.entries(scenes)) manager.register(name, scene);
 
-/** Boot scene hands over once the player presses anything. */
+/**
+ * Boot scene hands over once the player presses anything.
+ *
+ * Order: opening cinematic -> loading -> auth (or the menu).
+ *
+ * The cinematic comes first because it is the reason someone keeps watching;
+ * sign-up is a chore you should only be asked to do once you are already
+ * interested. The account restore runs *behind* the cinematic rather than
+ * before it, so the 20-odd seconds are spent loading instead of idling.
+ */
 scenes.boot.onStart = async () => {
   const restoreTask = (async () => {
     // Decide where accounts live before anything tries to read one. A static
@@ -87,19 +96,32 @@ scenes.boot.onStart = async () => {
     await assets.loadAll();
   })();
 
-  manager.change('loading', {
-    transition: TRANSITIONS.WIPE,
-    duration: 0.9,
-    params: {
-      task: restoreTask,
-      minTime: 2.2,
-      label: 'Preparing Creator Bitos...',
-      next: 'decide',
-      arena: 'menu'
-    }
-  });
+  const loadingParams = {
+    task: restoreTask,
+    minTime: 2.2,
+    label: 'Preparing Creator Bitos...',
+    next: 'decide',
+    arena: 'menu'
+  };
 
-  // Wait for the restore, then route to auth or the menu/intro.
+  // First run: play the opening cinematic, then fall into the loading screen
+  // (which by then only has to wait out its minimum time). Returning players
+  // skip it, and everyone can skip with any key. Extras can replay it.
+  if (!gameState.hasSeenIntro) {
+    manager.change('intro', {
+      transition: TRANSITIONS.WIPE,
+      duration: 0.9,
+      params: { next: 'loading', nextParams: loadingParams }
+    });
+  } else {
+    manager.change('loading', {
+      transition: TRANSITIONS.WIPE,
+      duration: 0.9,
+      params: loadingParams
+    });
+  }
+
+  // Wait for the restore, then route to auth or the menu.
   await restoreTask.catch(() => {});
   pendingDecision = gameState.isSignedIn ? 'signedIn' : 'signedOut';
 };
@@ -147,10 +169,11 @@ const loop = new GameLoop({
       if (pendingDecision && manager.currentName === 'loading') {
         const target = pendingDecision;
         pendingDecision = null;
-        manager.change(target === 'signedIn' ? (gameState.hasSeenIntro ? 'menu' : 'intro') : 'auth', {
+        // The cinematic has already played by this point (or was not wanted),
+        // so signed-in players always land on the menu.
+        manager.change(target === 'signedIn' ? 'menu' : 'auth', {
           transition: TRANSITIONS.WIPE,
-          duration: 0.9,
-          params: target === 'signedIn' && !gameState.hasSeenIntro ? { next: 'menu' } : {}
+          duration: 0.9
         });
       }
 
