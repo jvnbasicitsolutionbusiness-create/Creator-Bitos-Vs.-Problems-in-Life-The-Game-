@@ -106,6 +106,10 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, {
     'Content-Type': contentType(file),
     'Content-Length': body.length,
+    // ES modules are always fetched in CORS mode. A sandboxed iframe has an
+    // opaque ("null") origin, so without this header every <script type=module>
+    // fails to load and the game never boots. Harmless for normal hosting.
+    'Access-Control-Allow-Origin': '*',
     // Always revalidate: no stale JS while developing.
     'Cache-Control': 'no-cache, must-revalidate'
   });

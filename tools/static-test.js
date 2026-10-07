@@ -222,8 +222,71 @@ try {
   api.setBase('');
   check('clearing the base returns to same-origin REST calls', api.useScript === false);
 
+  /* ------------------------------------------------- hostile environments */
+  console.log('\n[6] Running where storage and Web Crypto are blocked');
+  // A sandboxed iframe (itch.io, embedded previews, school portals) or any
+  // plain-HTTP origin has NO crypto.subtle, and localStorage *throws* on
+  // access. Both used to take the whole game down before it drew a frame.
+  const pb = await import('../public/src/core/pbkdf2.js');
+
+  const savedCrypto = globalThis.crypto;
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    value: { getRandomValues: (a) => { for (let i = 0; i < a.length; i += 1) a[i] = (i * 31) & 0xff; return a; } } // no .subtle
+  });
+  check('crypto.subtle really is absent in this simulation', globalThis.crypto.subtle === undefined);
+
+  const enc = new TextEncoder();
+  const noSubtle = await pb.derivePasswordHash('hunter2', { salt: enc.encode('0123456789abcdef'), iterations: 1000, bytes: 32 });
+  check('password hashing still works with no Web Crypto', noSubtle.hash.startsWith('pbkdf2$1000$'));
+  check('it reports falling back to the JS engine', noSubtle.engine === 'javascript', noSubtle.engine);
+
+  // The fallback must produce the SAME bytes as native Web Crypto, or a hash
+  // written on one engine could never be verified on the other.
+  const nodeCrypto = await import('node:crypto');
+  const nativeHex = nodeCrypto.pbkdf2Sync('hunter2', '0123456789abcdef', 1000, 32, 'sha256').toString('hex');
+  const jsHex = Buffer.from(pb.fromBase64(noSubtle.hash.split('$')[3])).toString('hex');
+  check('the JS engine matches native PBKDF2 bit for bit', jsHex === nativeHex);
+
+  // And with native Web Crypto restored, both engines must agree.
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: savedCrypto });
+  const withSubtle = await pb.derivePasswordHash('hunter2', { salt: enc.encode('0123456789abcdef'), iterations: 1000, bytes: 32 });
+  check('native engine is used when available', withSubtle.engine === 'webcrypto', withSubtle.engine);
+  check('both engines produce an identical hash', withSubtle.hash === noSubtle.hash);
+
+  // localStorage that throws on access (opaque origin).
+  const savedLS = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const savedWindowLS = globalThis.window
+    ? Object.getOwnPropertyDescriptor(globalThis.window, 'localStorage') : null;
+  const throwing = {
+    configurable: true,
+    get() { throw new DOMException('Access is denied', 'SecurityError'); }
+  };
+  Object.defineProperty(globalThis, 'localStorage', throwing);
+  // utils.js reads `window.localStorage`, so block that one too.
+  if (globalThis.window) Object.defineProperty(globalThis.window, 'localStorage', throwing);
+  // Cache-busted import: utils.js probes storage once on first use, so this
+  // must be a fresh instance to observe the blocked localStorage.
+  const utils = await import(`../public/src/core/utils.js?fresh=${Date.now()}`);
+  let threw = false;
+  try {
+    utils.storage.set('probe', { a: 1 });
+    const back = utils.storage.get('probe');
+    check('storage still returns what was written (in memory)', back && back.a === 1, JSON.stringify(back));
+    check('storage reports it is not persistent', utils.storage.persistent === false);
+    utils.storage.remove('probe');
+    check('removal works without storage', utils.storage.get('probe') === null);
+  } catch (err) {
+    threw = true;
+    check('storage survives blocked localStorage', false, err.message);
+  }
+  check('no exception escaped the storage wrapper', threw === false);
+  if (savedLS) Object.defineProperty(globalThis, 'localStorage', savedLS);
+  else delete globalThis.localStorage;
+  if (savedWindowLS && globalThis.window) Object.defineProperty(globalThis.window, 'localStorage', savedWindowLS);
+
   /* ---------------------------------------------------------- security */
-  console.log('\n[6] Static-host security');
+  console.log('\n[7] Static-host security');
   const clientFiles = files.filter((f) => f.endsWith('.js'));
   const leaking = clientFiles.filter((f) =>
     /GOOGLE_PRIVATE_KEY|private_key|service_account|AIza|api[_-]?key/i.test(fs.readFileSync(path.join(publicDir, f), 'utf8'))

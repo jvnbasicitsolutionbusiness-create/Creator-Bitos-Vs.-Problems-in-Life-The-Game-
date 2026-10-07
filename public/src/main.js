@@ -113,6 +113,30 @@ let pendingDecision = null;
 let playtimeAccumulator = 0;
 let autosaveAccumulator = 0;
 let fatalError = null;
+let errorStrikes = 0;
+
+/**
+ * A single bad frame should not end the session. Three consecutive ones are a
+ * real fault, so only then does the loop stop and the error screen appear.
+ * The screen also prints the stack, because "ENGINE ERROR" on its own tells
+ * you nothing about where it came from.
+ */
+function noteError(where, err) {
+  console.error(`[${where}]`, err);
+  const trace = err && err.stack ? String(err.stack) : String(err && err.message || err);
+  fatalError = { message: err && err.message ? err.message : String(err), trace, where };
+  errorStrikes += 1;
+  if (errorStrikes < 3) {
+    // Give it a moment; a transient failure (a dropped audio node, a resize
+    // race) should not cost the player their run.
+    setTimeout(() => { if (errorStrikes > 0) errorStrikes -= 1; }, 2500);
+  }
+}
+
+/** Called every successful frame, so isolated blips expire on their own. */
+function clearErrors() {
+  if (fatalError && errorStrikes === 0) fatalError = null;
+}
 
 const loop = new GameLoop({
   update(dt) {
@@ -149,9 +173,9 @@ const loop = new GameLoop({
       }
 
       input.endFrame();
+      clearErrors();
     } catch (err) {
-      fatalError = err;
-      console.error('[loop]', err);
+      noteError('update', err);
     }
   },
 
@@ -160,8 +184,7 @@ const loop = new GameLoop({
     try {
       manager.draw(ctx, dt);
     } catch (err) {
-      fatalError = err;
-      console.error('[render]', err);
+      noteError('render', err);
     }
 
     if (settings.get('showFps')) {
@@ -171,16 +194,29 @@ const loop = new GameLoop({
     }
 
     if (fatalError) {
-      drawText(ctx, 'ENGINE ERROR', 640, 320, {
+      surface.clear('#0a0408');
+      drawText(ctx, 'ENGINE ERROR', 640, 250, {
         size: 34, weight: '800', color: '#ff5c5c', align: 'center', spacing: 4
       });
-      drawText(ctx, String(fatalError.message || fatalError).slice(0, 120), 640, 360, {
-        size: 15, weight: '600', color: '#ffffff', align: 'center'
+      drawText(ctx, String(fatalError.message || '').slice(0, 110), 640, 300, {
+        size: 16, weight: '700', color: '#ffffff', align: 'center'
       });
-      drawText(ctx, 'Press F5 to restart the game', 640, 396, {
+      // The stack is what actually identifies the bug, so put it on screen
+      // as well as in the console (most players screenshot the screen).
+      const trace = String(fatalError.trace || '').split('\n').slice(1, 5)
+        .map((line) => line.trim().replace(/^at\s+/, '').slice(0, 96));
+      trace.forEach((line, i) => {
+        drawText(ctx, line, 640, 336 + i * 20, {
+          size: 12, weight: '600', color: '#b9a9ac', align: 'center'
+        });
+      });
+      drawText(ctx, fatalError.where ? `failed in: ${fatalError.where}` : '', 640, 430, {
+        size: 12, weight: '700', color: '#7bb0d0', align: 'center'
+      });
+      drawText(ctx, 'Press F5 to restart · this text is also in the browser console', 640, 470, {
         size: 13, weight: '600', color: '#8d7f84', align: 'center', spacing: 2
       });
-      loop.stop();
+      if (errorStrikes >= 3) loop.stop();
     }
   }
 });
@@ -195,7 +231,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 window.addEventListener('error', (e) => {
-  fatalError = e.error || new Error(e.message);
+  noteError('window', e.error || new Error(e.message));
 });
 window.addEventListener('unhandledrejection', (e) => {
   fatalError = e.reason || new Error('Unhandled promise rejection');

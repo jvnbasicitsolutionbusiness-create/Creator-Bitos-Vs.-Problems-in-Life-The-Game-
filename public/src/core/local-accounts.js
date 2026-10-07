@@ -14,6 +14,8 @@
  *    (server/accounts.js) is preferred whenever a backend is reachable.
  */
 
+import { derivePasswordHash, toBase64 as b64, fromBase64 as unb64 } from './pbkdf2.js';
+
 const ACCOUNTS_KEY = 'bitos.accounts.v1';
 const SESSION_KEY = 'bitos.session.v1';
 const ITERATIONS = 250000;
@@ -39,7 +41,16 @@ function fromBase64(text) {
 
 function randomBytes(length) {
   const bytes = new Uint8Array(length);
-  (globalThis.crypto || globalThis.msCrypto).getRandomValues(bytes);
+  try {
+    const c = globalThis.crypto || globalThis.msCrypto;
+    if (c && typeof c.getRandomValues === 'function') {
+      c.getRandomValues(bytes);
+      return bytes;
+    }
+  } catch { /* fall through */ }
+  // Last resort: not cryptographic, but keeps the game running rather than
+  // throwing. Only reachable in exotic sandboxes.
+  for (let i = 0; i < length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
   return bytes;
 }
 
@@ -68,13 +79,10 @@ function safeEqual(a, b) {
 
 async function hashPassword(password) {
   const salt = randomBytes(16);
-  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
-    key,
-    KEY_BITS
-  );
-  return `pbkdf2$${ITERATIONS}$${toBase64(salt)}$${toBase64(bits)}`;
+  // Falls back to the pure-JS engine when crypto.subtle is unavailable
+  // (sandboxed iframe, plain-HTTP origin, or a browser without Web Crypto).
+  const { hash } = await derivePasswordHash(password, { salt, iterations: ITERATIONS, bytes: KEY_BITS / 8 });
+  return hash;
 }
 
 async function verifyPassword(password, stored) {
@@ -85,13 +93,10 @@ async function verifyPassword(password, stored) {
   if (!Number.isFinite(iterations) || iterations < 1000) return false;
   try {
     const salt = fromBase64(parts[2]);
-    const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-      key,
-      KEY_BITS
-    );
-    return safeEqual(toBase64(bits), parts[3]);
+    // Same dual engine, and it reads the iteration count from the stored hash
+    // so old records keep verifying after a change to ITERATIONS.
+    const { hash } = await derivePasswordHash(password, { salt, iterations, bytes: KEY_BITS / 8 });
+    return safeEqual(hash, stored);
   } catch {
     return false;
   }
@@ -173,7 +178,7 @@ class LocalAccountStore {
       const probe = '__bitos_probe__';
       localStorage.setItem(probe, '1');
       localStorage.removeItem(probe);
-      return typeof crypto !== 'undefined' && Boolean(crypto.subtle);
+      return true; // hashing no longer needs crypto.subtle — it has a JS fallback
     } catch {
       return false; // private mode / storage disabled
     }

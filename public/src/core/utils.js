@@ -97,27 +97,63 @@ export function shade(hex, amount) {
 
 const STORAGE_PREFIX = 'bitos.';
 
+/**
+ * `localStorage` is not always usable: a sandboxed iframe (itch.io, embedded
+ * previews, school portals) gets an opaque origin where *reading the property*
+ * throws a SecurityError, and Safari private mode has a zero quota. When that
+ * happens we fall back to an in-memory map, so settings and progression still
+ * behave correctly for this session instead of taking the game down.
+ */
+function probeLocalStorage() {
+  try {
+    const probe = '__bitos_ls__';
+    window.localStorage.setItem(probe, '1');
+    window.localStorage.removeItem(probe);
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+const memoryStore = new Map();
+let backing = null;   // resolved lazily, once
+let probed = false;
+
+function store() {
+  if (!probed) { probed = true; backing = probeLocalStorage(); }
+  return backing;
+}
+
 export const storage = {
+  /** True when values survive a reload. */
+  get persistent() { return store() !== null; },
   get(key, fallback = null) {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
-      return raw === null ? fallback : JSON.parse(raw);
-    } catch {
-      return fallback;
+    const ls = store();
+    if (ls) {
+      try {
+        const raw = ls.getItem(STORAGE_PREFIX + key);
+        return raw === null ? fallback : JSON.parse(raw);
+      } catch { return fallback; }
     }
+    return memoryStore.has(key) ? memoryStore.get(key) : fallback;
   },
   set(key, value) {
-    try {
-      window.localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
-      return true;
-    } catch {
-      return false;
+    const ls = store();
+    if (ls) {
+      try {
+        ls.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+        return true;
+      } catch { /* quota or blocked — fall through to memory */ }
     }
+    memoryStore.set(key, value);
+    return false;
   },
   remove(key) {
-    try {
-      window.localStorage.removeItem(STORAGE_PREFIX + key);
-    } catch { /* ignore */ }
+    memoryStore.delete(key);
+    const ls = store();
+    if (ls) {
+      try { ls.removeItem(STORAGE_PREFIX + key); } catch { /* ignore */ }
+    }
   }
 };
 
