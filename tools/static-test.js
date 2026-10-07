@@ -75,6 +75,35 @@ try {
   check('.nojekyll present (stops GitHub mangling the build)',
     fs.existsSync(path.join(ROOT, 'public', '.nojekyll')) && fs.existsSync(path.join(ROOT, '.nojekyll')));
 
+  // A single broken import is the classic static-host failure: the page loads,
+  // the console throws, and the screen stays black. Walk every module by hand.
+  const jsFiles = [];
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.js')) jsFiles.push(p);
+    }
+  })(path.join(ROOT, 'public', 'src'));
+  const importRe = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g;
+  const broken = [];
+  let importCount = 0;
+  for (const file of jsFiles) {
+    const src = fs.readFileSync(file, 'utf8');
+    importRe.lastIndex = 0;
+    let m;
+    while ((m = importRe.exec(src))) {
+      const spec = m[1] || m[2] || m[3];
+      if (!spec || !spec.startsWith('.')) continue;
+      importCount++;
+      const target = path.resolve(path.dirname(file), spec);
+      // Static servers do no rewriting and never guess an extension.
+      if (!fs.existsSync(target) || path.extname(target) === '') broken.push(`${file} -> ${spec}`);
+    }
+  }
+  check('every module import resolves to a real file on disk', broken.length === 0,
+    broken.length ? broken.join(', ') : `${jsFiles.length} modules, ${importCount} imports`);
+
   /* ----------------------------------------------------------- assets */
   console.log('\n[2] Every asset the browser will request');
   const publicDir = path.join(ROOT, 'public');

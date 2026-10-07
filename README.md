@@ -217,7 +217,7 @@ tools/                test + QA harness (not shipped)
 ## Testing
 
 ```bash
-npm run check     # 176 checks, no server needed
+npm run check     # 177 checks, no server needed
 npm test          # the above + 32 live API checks (needs `npm run server`)
 ```
 
@@ -227,7 +227,7 @@ npm test          # the above + 32 live API checks (needs `npm run server`)
 | `scene-smoke.js` | 38 | all 12 scenes for real frame counts, NaN-geometry guard, bounds, HP/meter, rebinding |
 | `store-test.js` | 42 | adapter round-trips, atomic writes, corrupt-file recovery, hashing, sessions |
 | `flash-test.js` | 12 | per-frame luminance on Seizure, Suffering and the intro |
-| `static-test.js` | 33 | static deployment, offline accounts, Apps Script mode, credential leaks |
+| `static-test.js` | 34 | static deployment, module graph, offline accounts, Apps Script mode, credential leaks |
 | `api-test.js` | 32 | live HTTP API (needs the server) |
 
 Runs are **deterministic**: every suite seeds `Math.random` (`tools/seed-random.js`), so
