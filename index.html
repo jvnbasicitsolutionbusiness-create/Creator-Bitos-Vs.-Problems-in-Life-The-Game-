@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CREATOR BITOS VS PROBLEMS IN LIFE (THE GAME)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="CREATOR BITOS VS PROBLEMS IN LIFE (THE GAME) — an original cinematic 2D stickman fighting game." />
+
+<!--
+  Repository-root entry point.
+
+  The playable game lives in /public so the folder can be published as-is to
+  GitHub Pages, Netlify or Vercel. Some hosts serve the repository ROOT by
+  default, so this file forwards them into the game. It works from any path,
+  including GitHub Pages project sites (/repo-name/...), because the redirect
+  is relative.
+
+  If your host is already configured to publish /public, this file is never
+  used — delete it and nothing breaks.
+-->
+<meta http-equiv="refresh" content="0; url=./public/index.html" />
+<link rel="canonical" href="./public/index.html" />
+<script>
+  // Instant redirect (the meta refresh above is the no-JavaScript fallback).
+  (function () {
+    var here = window.location.pathname.replace(/[^/]*$/, '');
+    window.location.replace(here + 'public/index.html' + window.location.search + window.location.hash);
+  })();
+</script>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #07040a;
+    color: #efe6e8;
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .launch {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: 0.8rem;
+    justify-items: center;
+    text-align: center;
+    padding: 2rem;
+  }
+  .launch h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 5vw, 3rem);
+    letter-spacing: 0.18em;
+    color: #ff2b3c;
+    text-shadow: 0 0 26px rgba(255, 43, 60, 0.45);
+  }
+  .launch p { margin: 0; color: #b9a9ac; letter-spacing: 0.14em; font-size: 0.9rem; }
+  .launch a { color: #7bb0d0; font-weight: 700; letter-spacing: 0.1em; }
+</style>
+</head>
+<body>
+  <div class="launch">
+    <h1>CREATOR BITOS</h1>
+    <p>VS PROBLEMS IN LIFE</p>
+    <p>Opening the game…</p>
+    <p><a href="./public/index.html">Click here if nothing happens</a></p>
+  </div>
+</body>
+</html>

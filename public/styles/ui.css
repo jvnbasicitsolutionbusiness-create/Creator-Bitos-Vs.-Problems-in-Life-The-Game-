@@ -1,0 +1,126 @@
+/* =============================================================================
+   CREATOR BITOS — shell styles
+   The game itself is rendered on canvas. CSS only handles the page frame,
+   letterboxing, and the hidden input bridge used for text entry.
+   ============================================================================= */
+
+:root {
+  --ink: #07040a;
+  --red: #ff2b3c;
+  --red-dim: #8c1622;
+  --bone: #efe8e6;
+  --steel: #6d6469;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  font-family: "Rajdhani", "Oswald", "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  color: var(--bone);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 45%, #160a10 0%, #08040a 55%, #000 100%);
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  background: #07040a;
+  cursor: crosshair;
+  outline: none;
+  touch-action: none;
+}
+
+/* Hidden field the canvas text fields borrow for real keyboard input. */
+.text-bridge {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: 0;
+  border: 0;
+  padding: 0;
+  font-size: 16px; /* prevents iOS zoom-on-focus */
+}
+
+/* First-paint boot note, removed by main.js once the engine is live. */
+.boot-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 0.6rem;
+  justify-items: center;
+  background: #07040a;
+  z-index: 5;
+  transition: opacity 0.45s ease;
+}
+
+.boot-note.hidden { opacity: 0; pointer-events: none; }
+
+.boot-title {
+  font-size: clamp(2rem, 7vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--red);
+  text-shadow: 0 0 28px rgba(255, 43, 60, 0.55);
+}
+
+.boot-sub {
+  font-size: clamp(0.7rem, 2vw, 1.1rem);
+  letter-spacing: 0.5em;
+  color: #b9a9ac;
+}
+
+.boot-bar {
+  width: min(340px, 62vw);
+  height: 6px;
+  background: #1b1116;
+  border: 1px solid #331c22;
+  overflow: hidden;
+  margin-top: 0.8rem;
+}
+
+.boot-bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6d0f19, var(--red));
+  animation: bootfill 1.6s ease-in-out infinite;
+}
+
+@keyframes bootfill {
+  0%   { width: 4%; }
+  55%  { width: 78%; }
+  100% { width: 100%; }
+}
+
+.boot-tip {
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  color: #6d6469;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-bar i { animation: none; width: 60%; }
+}

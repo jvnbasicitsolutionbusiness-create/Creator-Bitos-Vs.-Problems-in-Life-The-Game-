@@ -1,0 +1,10 @@
+node_modules/
+package-lock.json
+.DS_Store
+*.log
+
+# runtime database (never commit player records)
+server/data/
+
+# captured QA frames
+tools/out/

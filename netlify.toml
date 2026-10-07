@@ -1,0 +1,9 @@
+[build]
+  publish = "public"
+  command = ""
+
+# The game is a static single-page app; everything renders from index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

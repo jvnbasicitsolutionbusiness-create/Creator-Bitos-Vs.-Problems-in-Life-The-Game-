@@ -1,0 +1,219 @@
+/**
+ * main.js — engine bootstrap.
+ *
+ * Creates the surface, input, audio, particles, camera and scene manager;
+ * registers every scene; restores any existing session; and runs the fixed
+ * 60 Hz simulation loop at up to the display's refresh rate.
+ */
+import { Surface, STAGE_W, STAGE_H } from './core/canvas.js';
+import { GameLoop, FIXED_DT } from './core/loop.js';
+import { input } from './core/input.js';
+import { api } from './core/api.js';
+import { gameState } from './core/state.js';
+import { SceneManager, TRANSITIONS } from './core/scene-manager.js';
+import { ParticleSystem, Camera, TimeKeeper } from './animation/effects.js';
+import { audio } from './audio/audio.js';
+import { assets } from './assets/loader.js';
+import { settings } from './config/settings.js';
+import { drawText } from './core/canvas.js';
+import { clamp } from './core/utils.js';
+
+/* Scenes */
+import { BootScene } from './scenes/boot.js';
+import { LoadingScene } from './scenes/loading.js';
+import { AuthScene } from './scenes/auth.js';
+import { IntroScene } from './scenes/intro.js';
+import { MenuScene } from './scenes/menu.js';
+import { CampaignScene } from './scenes/campaign.js';
+import { BattleScene } from './scenes/battle.js';
+import { ResultsScene } from './scenes/results.js';
+import { TrainingScene } from './scenes/training.js';
+import { VersusScene } from './scenes/versus.js';
+import { ExtrasScene } from './scenes/extras.js';
+import { SettingsScene } from './scenes/settings.js';
+
+// ?api=https://script.google.com/.../exec points the game at a Google Apps
+// Script Web App instead of the same-origin server.
+if (typeof location !== 'undefined' && location.search) {
+  const override = new URLSearchParams(location.search).get('api');
+  if (override) api.setBase(override);
+} else if (globalThis.BITOS_API_BASE) {
+  api.setBase(globalThis.BITOS_API_BASE);
+}
+
+
+const canvas = document.getElementById('game-canvas');
+const bridge = document.getElementById('text-bridge');
+const bootNote = document.getElementById('boot-note');
+
+const surface = new Surface(canvas);
+const particles = new ParticleSystem(700);
+const camera = new Camera({ width: STAGE_W, height: STAGE_H });
+const timeKeeper = new TimeKeeper();
+
+input.attach(canvas, bridge);
+
+const ctx = surface.ctx;
+
+/* -------------------------------------------------------------------------- */
+/* Scenes                                                                      */
+/* -------------------------------------------------------------------------- */
+
+const manager = new SceneManager({ ctx });
+const scenes = {
+  boot: new BootScene({ audio, particles }),
+  loading: new LoadingScene({ audio, particles }),
+  auth: new AuthScene({ audio }),
+  intro: new IntroScene({ audio, particles, camera }),
+  menu: new MenuScene({ audio, particles }),
+  campaign: new CampaignScene({ audio, particles }),
+  battle: new BattleScene({ audio, particles, camera, time: timeKeeper }),
+  results: new ResultsScene({ audio, particles }),
+  training: new TrainingScene({ audio }),
+  versus: new VersusScene({ audio }),
+  extras: new ExtrasScene({ audio }),
+  settings: new SettingsScene({ audio })
+};
+for (const [name, scene] of Object.entries(scenes)) manager.register(name, scene);
+
+/** Boot scene hands over once the player presses anything. */
+scenes.boot.onStart = async () => {
+  const restoreTask = (async () => {
+    // Decide where accounts live before anything tries to read one. A static
+    // deploy (GitHub Pages, Netlify, …) has no API, so this falls back to the
+    // browser's own store and the game stays fully playable.
+    await api.detectMode().catch(() => { api.mode = 'offline'; });
+    if (api.isSignedIn) await gameState.restore();
+    await assets.loadAll();
+  })();
+
+  manager.change('loading', {
+    transition: TRANSITIONS.WIPE,
+    duration: 0.9,
+    params: {
+      task: restoreTask,
+      minTime: 2.2,
+      label: 'Preparing Creator Bitos...',
+      next: 'decide',
+      arena: 'menu'
+    }
+  });
+
+  // Wait for the restore, then route to auth or the menu/intro.
+  await restoreTask.catch(() => {});
+  pendingDecision = gameState.isSignedIn ? 'signedIn' : 'signedOut';
+};
+
+let pendingDecision = null;
+
+/* -------------------------------------------------------------------------- */
+/* Loop                                                                        */
+/* -------------------------------------------------------------------------- */
+
+let playtimeAccumulator = 0;
+let autosaveAccumulator = 0;
+let fatalError = null;
+
+const loop = new GameLoop({
+  update(dt) {
+    try {
+      timeKeeper.step(dt * 0); // keep the keeper ticking without changing time scale
+
+      // Intercept the loading scene's "decide" hand-off.
+      if (pendingDecision && manager.currentName === 'loading') {
+        const target = pendingDecision;
+        pendingDecision = null;
+        manager.change(target === 'signedIn' ? (gameState.hasSeenIntro ? 'menu' : 'intro') : 'auth', {
+          transition: TRANSITIONS.WIPE,
+          duration: 0.9,
+          params: target === 'signedIn' && !gameState.hasSeenIntro ? { next: 'menu' } : {}
+        });
+      }
+
+      const pointer = input.pointer;
+      manager.update(dt, pointer);
+      scenes[manager.currentName]?.handlePointer?.(pointer);
+
+      // Periodic bookkeeping
+      playtimeAccumulator += dt;
+      autosaveAccumulator += dt;
+      if (playtimeAccumulator >= 30) {
+        gameState.addPlayTime(playtimeAccumulator);
+        playtimeAccumulator = 0;
+      }
+      if (autosaveAccumulator >= 8) {
+        autosaveAccumulator = 0;
+        if (gameState.dirty && settings.get('autosave')) {
+          gameState.flush().catch(() => {});
+        }
+      }
+
+      input.endFrame();
+    } catch (err) {
+      fatalError = err;
+      console.error('[loop]', err);
+    }
+  },
+
+  render(dt) {
+    surface.clear('#05030a');
+    try {
+      manager.draw(ctx, dt);
+    } catch (err) {
+      fatalError = err;
+      console.error('[render]', err);
+    }
+
+    if (settings.get('showFps')) {
+      drawText(ctx, `${Math.round(loop.fps)} FPS · ${particles.count} particles`, 12, 710, {
+        size: 13, weight: '700', color: 'rgba(255,255,255,0.55)', spacing: 1
+      });
+    }
+
+    if (fatalError) {
+      drawText(ctx, 'ENGINE ERROR', 640, 320, {
+        size: 34, weight: '800', color: '#ff5c5c', align: 'center', spacing: 4
+      });
+      drawText(ctx, String(fatalError.message || fatalError).slice(0, 120), 640, 360, {
+        size: 15, weight: '600', color: '#ffffff', align: 'center'
+      });
+      drawText(ctx, 'Press F5 to restart the game', 640, 396, {
+        size: 13, weight: '600', color: '#8d7f84', align: 'center', spacing: 2
+      });
+      loop.stop();
+    }
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  // Global audio unlock if the player skips the boot screen with a key.
+  if (!audio.ready && ['Space', 'Enter', 'KeyJ', 'KeyK'].includes(e.code)) audio.init();
+}, { capture: true });
+
+window.addEventListener('beforeunload', () => {
+  if (gameState.dirty) gameState.flush().catch(() => {});
+});
+
+window.addEventListener('error', (e) => {
+  fatalError = e.error || new Error(e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  fatalError = e.reason || new Error('Unhandled promise rejection');
+});
+
+/* -------------------------------------------------------------------------- */
+/* Start                                                                       */
+/* -------------------------------------------------------------------------- */
+
+manager.change('boot', { params: {} });
+loop.start();
+
+if (bootNote) {
+  bootNote.classList.add('hidden');
+  setTimeout(() => bootNote.remove(), 600);
+}
+
+// Expose a small debug handle (harmless, useful for testing in the console).
+window.BITOS = { manager, scenes, gameState, settings, input, audio, loop, api, assets, camera, particles, FIXED_DT, clamp };
+
+void FIXED_DT;

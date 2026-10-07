@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0508" />
+<meta name="description" content="CREATOR BITOS VS PROBLEMS IN LIFE (THE GAME) — an original cinematic 2D stickman fighting game." />
+<title>CREATOR BITOS VS PROBLEMS IN LIFE (THE GAME)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0508'/%3E%3Ccircle cx='32' cy='16' r='8' fill='%23ff2b3c'/%3E%3Cpath d='M32 24 L32 44 M32 30 L20 40 M32 30 L44 40 M32 44 L22 60 M32 44 L42 60' stroke='%23ff2b3c' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./styles/ui.css" />
+</head>
+<body>
+  <div id="stage" class="stage">
+    <canvas id="game-canvas" width="1280" height="720" aria-label="Creator Bitos game canvas"></canvas>
+
+    <!-- Hidden input bridge: canvas text fields focus this element so mobile
+         keyboards, IME and paste work, then mirror the value into the canvas UI. -->
+    <input id="text-bridge" class="text-bridge" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" tabindex="-1" aria-hidden="true" />
+
+    <div id="boot-note" class="boot-note">
+      <div class="boot-title">CREATOR BITOS</div>
+      <div class="boot-sub">VS PROBLEMS IN LIFE</div>
+      <div class="boot-bar"><i></i></div>
+      <div class="boot-tip" id="boot-tip">Waking Creator Bitos up…</div>
+    </div>
+  </div>
+
+  <noscript>
+    <p style="color:#fff;font-family:sans-serif;padding:2rem">
+      CREATOR BITOS VS PROBLEMS IN LIFE needs JavaScript enabled to run.
+    </p>
+  </noscript>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
