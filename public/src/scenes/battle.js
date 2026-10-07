@@ -61,6 +61,7 @@ export class BattleScene {
   /* ------------------------------------------------------------------ */
 
   enter(params = {}) {
+    document.body.classList.add('game-active');
     this.sceneTime = 0;
     this.phaseTime = 0;
     this.phase = PHASE.ESTABLISH;
@@ -141,6 +142,7 @@ export class BattleScene {
   }
 
   exit() {
+    document.body.classList.remove('game-active');
     this.particles?.clear();
     this.time?.reset();
   }

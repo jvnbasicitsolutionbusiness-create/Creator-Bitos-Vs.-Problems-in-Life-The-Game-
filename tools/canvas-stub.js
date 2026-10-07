@@ -175,7 +175,18 @@ export function installDomStub({ contextFactory = makeContext } = {}) {
 
   globalThis.window = win;
   globalThis.document = doc;
-  globalThis.navigator = globalThis.navigator || { userAgent: 'node' };
+  try {
+    globalThis.navigator = { userAgent: 'node' };
+  } catch (_) {
+    // Node.js v24+ makes navigator read-only; define it safely if it's absent
+    if (!globalThis.navigator) {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { userAgent: 'node' },
+        writable: true,
+        configurable: true
+      });
+    }
+  }
   globalThis.localStorage = win.localStorage;
   globalThis.sessionStorage = makeStorage();
   globalThis.Image = class {

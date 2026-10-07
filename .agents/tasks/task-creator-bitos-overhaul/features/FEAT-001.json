@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Game flow fix (intro plays before boot on fresh visit), dramatic boot screen upgrade with bokeh/lightning/featured characters, and CSS custom sniper-scope cursor with game-active class. Independent of FEAT-002 through FEAT-005.",
+  "status": "completed",
+  "steps": [
+    "1. Edit public/src/main.js — bottom section: change the initial manager.change() from 'boot' to a conditional: if (!gameState.hasSeenIntro) manager.change('intro', { params: {} }); else manager.change('boot', { params: {} }). Remove the old unconditional manager.change('boot', ...) call. Keep scenes.boot.onStart callback exactly as-is (it still handles loading → auth/menu for returning players). Keep pendingDecision routing in update loop untouched.",
+    "2. Edit public/src/scenes/intro.js enter() — change 'this.next = params.next || 'menu'' to 'this.next = params.next || 'boot''. This makes the intro flow into the boot screen (which then fires onStart → loading). Also add audio?.init() call alongside the first key/click skip handling so the audio unlocks on the very first interaction (mirrors what boot.js does).",
+    "3. Edit public/src/scenes/boot.js — dramatic overhaul: (a) Remove this.motes array; replace with this.bokeh = array of 28 objects {x, y, vx, vy, r (40-120), color (either rgba red-orange or rgba blue-purple), alpha (0.04-0.12), phase}. (b) Add this.lightning = [] and this.lightningTimer = 0; every 0.18s generate 3 new jagged polyline paths: each path starts at a featured enemy position and ends near Bitos (center), with 6-9 random intermediate points. (c) Add this.sparks = [] — tiny particles burst from lightning endpoints. (d) In draw(): first paint a split radial gradient background (left half: radial red/orange bokeh, right half: radial blue/purple bokeh) over the arena. (e) Draw bokeh orbs with globalCompositeOperation='lighter'. (f) Draw lightning paths with globalCompositeOperation='lighter', thin stroke, flickering alpha (rand 0.15-0.55 each frame). (g) Featured characters: draw Society (id='society') at x=860 height=180, Seizure (id='seizure') at x=1060 height=180, Bitos at x=640 height=240. All with CLIPS.idle pose. (h) Title text: 'CREATOR BITOS' at y=130 size=86 red glow, 'VS PROBLEMS IN LIFE' at y=182, prompt 'CLICK OR PRESS ANY KEY' at y=640. (i) Keep onStart callback untouched.",
+    "4. Edit public/styles/ui.css — (a) Replace 'cursor: crosshair' on #game-canvas with: cursor: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' stroke='%23ff2b3c' stroke-width='1.5' fill='none'/%3E%3Cline x1='16' y1='2' x2='16' y2='10' stroke='%23ff2b3c' stroke-width='1.5'/%3E%3Cline x1='16' y1='22' x2='16' y2='30' stroke='%23ff2b3c' stroke-width='1.5'/%3E%3Cline x1='2' y1='16' x2='10' y2='16' stroke='%23ff2b3c' stroke-width='1.5'/%3E%3Cline x1='22' y1='16' x2='30' y2='16' stroke='%23ff2b3c' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23ff2b3c'/%3E%3C/svg%3E\") 16 16, crosshair; (b) Add: body.game-active #game-canvas { cursor: none; } (c) Add: @media (max-width: 1280px) { #game-canvas { object-fit: contain; } }",
+    "5. Edit public/index.html — add Google Fonts preconnect + Rajdhani import link tags in <head> before the existing stylesheet link: <link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin><link href='https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700;800&display=swap' rel='stylesheet'>",
+    "6. Edit public/src/scenes/battle.js enter() — add document.body.classList.add('game-active') at the start of enter(). Edit exit() — add document.body.classList.remove('game-active')."
+  ],
+  "acceptance_criteria": [
+    "On a fresh browser visit (localStorage cleared), the intro cinematic plays immediately without any boot screen appearing first",
+    "Pressing any key during the intro skips to the boot screen, which then proceeds to loading → auth/menu",
+    "Returning players (hasSeenIntro=true) see the boot screen first as before",
+    "F5 restart works correctly (intro plays again for new sessions)",
+    "Boot screen shows three characters (Bitos center, Society right, Seizure far-right) with lightning effects between them and bokeh orbs in background",
+    "Custom sniper scope cursor is visible on boot and menu screens",
+    "Cursor disappears (cursor:none) when a battle starts and reappears after",
+    "Rajdhani font loads from Google Fonts on live deploy"
+  ],
+  "verification": [
+    "Serve with: npx serve public — open http://localhost:3000",
+    "Clear localStorage, refresh — intro cinematic should play first",
+    "Press any key to skip — should go to boot screen then loading",
+    "node tools/scene-smoke.js — all scene tests must pass",
+    "node tools/flash-test.js — no flash violations from boot screen"
+  ],
+  "blocked_reason": null,
+  "findings": "canvas-stub.js had a pre-existing Node.js v24 incompatibility (navigator is read-only in v24). Fixed by wrapping the assignment in a try/catch with Object.defineProperty fallback. All 6 steps implemented: main.js conditional flow, intro.js default next + audio.init, boot.js dramatic overhaul (bokeh/lightning/3 characters), ui.css sniper cursor + game-active + responsive media query, index.html Rajdhani font, battle.js game-active class toggle. 42/42 smoke + 12/12 flash tests pass."
+}

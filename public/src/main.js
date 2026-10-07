@@ -264,7 +264,11 @@ window.addEventListener('unhandledrejection', (e) => {
 /* Start                                                                       */
 /* -------------------------------------------------------------------------- */
 
-manager.change('boot', { params: {} });
+if (!gameState.hasSeenIntro) {
+  manager.change('intro', { params: {} });
+} else {
+  manager.change('boot', { params: {} });
+}
 loop.start();
 
 if (bootNote) {

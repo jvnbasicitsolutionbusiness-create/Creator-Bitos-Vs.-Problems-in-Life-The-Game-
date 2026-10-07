@@ -117,7 +117,7 @@ export class IntroScene {
     this.bloom = 0;
     this.bitoxX = 640;
     this.bitosAlpha = 0;
-    this.next = params.next || 'menu';
+    this.next = params.next || 'boot';
     this.nextParams = params.nextParams || {};
     this.replay = Boolean(params.replay);
     // Skippable from the very first playthrough — being forced to sit through
@@ -364,7 +364,10 @@ export class IntroScene {
       // Fade the button in as the grace period expires, so it does not pop.
       if (this.time >= SKIP_GRACE) this.skipButton.update(dt, pointer);
       const p1 = input.p1();
-      if ((p1.wasPressed('confirm') || p1.wasPressed('back') || input.anyKeyPressed) && this.time > 0.6) this.skip();
+      if ((p1.wasPressed('confirm') || p1.wasPressed('back') || input.anyKeyPressed) && this.time > 0.6) {
+        this.audio?.init(); // unlock audio on first interaction (browser autoplay policy)
+        this.skip();
+      }
     }
     void easeInCubic;
   }
